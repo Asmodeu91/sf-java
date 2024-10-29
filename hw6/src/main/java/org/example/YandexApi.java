@@ -4,15 +4,13 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.json.simple.parser.ParseException;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.*;
+import java.util.Properties;
 
 public class YandexApi {
-    private static final String API_TOKEN = "";
 
     public static String getForecast(String lat, String lon, int days) {
         String URL = "https://api.weather.yandex.ru/v2/forecast?" + "lat=" + lat + "&" + "lon=" + lon;
@@ -25,7 +23,7 @@ public class YandexApi {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(URL))
                     .header("Content-Type", "application/json")
-                    .header("X-Yandex-Weather-Key", API_TOKEN)
+                    .header("X-Yandex-Weather-Key", Main.API_TOKEN)
                     .GET()
                     .build();
             try {
@@ -41,11 +39,8 @@ public class YandexApi {
         }
         return resp.toString();
     }
-
     public static String getForecast(String lat, String lon) {
-
         return YandexApi.getForecast(lat, lon, 0);
-
     }
 
     public static Object getWeather(String lat, String lon, int days) throws ParseException {
@@ -55,16 +50,13 @@ public class YandexApi {
         } else {
             response = YandexApi.getForecast(lat, lon);
         }
-        JSONParser parser = new JSONParser();
-        Object obj = parser.parse(response);
-        JSONArray array = new JSONArray();
-        array.add(obj);
-        JSONObject jobj = (JSONObject) array.get(0);
-        JSONObject fact = (JSONObject) jobj.get("fact");
-        String temp = fact.get("temp").toString();
+        GsonBuilder builder = new GsonBuilder();
+        Gson gson = builder.create();
+        YandexApiResponse apiResponse;
+        apiResponse = gson.fromJson(response, YandexApiResponse.class);
+        String temp = apiResponse.fact.temp;
         System.out.println("Температура: " + temp + "° по Цельсию");
         return response;
-
     }
 
     public static Object getWeather(String lat, String lon) throws ParseException {
@@ -72,32 +64,17 @@ public class YandexApi {
     }
 
     public static int arithmeticMeamWeather(String response) throws ParseException {
-        JSONParser parser = new JSONParser();
-        Object obj = parser.parse(response);
-        JSONArray array = new JSONArray();
-        array.add(obj);
-        JSONObject jobj = (JSONObject) array.get(0);
-        JSONArray forecasts = (JSONArray) jobj.get("forecasts");
-        List<String> messages = new ArrayList<>();
-        for (Object o : forecasts) {
-            messages.add((String) o.toString());
-        }
+        GsonBuilder builder = new GsonBuilder();
+        Gson gson = builder.create();
+        YandexApiResponse apiResponse;
+        apiResponse = gson.fromJson(response, YandexApiResponse.class);
         int days = 0;
-        int avg_summary = 0;
-        for (String l : messages) {
-            JSONParser parser1 = new JSONParser();
-            Object obj1 = parser1.parse(l);
-            JSONArray array1 = new JSONArray();
-            array1.add(obj1);
-            JSONObject jobj1 = (JSONObject) array1.get(0);
-            JSONObject parts = (JSONObject) jobj1.get("parts");
-            JSONObject night = (JSONObject) parts.get("night");
-            String temp_avg = night.get("temp_avg").toString();
+        int avgSummary = 0;
+        for ( int i=0; i < apiResponse.forecasts.length; i++) {
             days++;
-            avg_summary += Integer.parseInt(temp_avg);
+            avgSummary += Integer.parseInt(apiResponse.forecasts[i].parts.night.temp_avg);
         }
-
-        int avg = avg_summary/days;
+        int avg = avgSummary / days;
             return avg;
         }
 }
